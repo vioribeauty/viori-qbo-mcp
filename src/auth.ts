@@ -108,7 +108,14 @@ export class PgOAuthProvider implements OAuthServerProvider {
 
   async verifyAccessToken(token: string): Promise<AuthInfo> {
     if (bearerMatches(token)) {
-      return { token, clientId: 'static-bearer', scopes: [], extra: { clientName: 'static bearer token' } };
+      // The SDK middleware requires an expiry; the static token itself never expires, so report a rolling hour.
+      return {
+        token,
+        clientId: 'static-bearer',
+        scopes: [],
+        expiresAt: Math.floor(Date.now() / 1000) + ACCESS_TTL_S,
+        extra: { clientName: 'static bearer token' },
+      };
     }
     const { rows } = await getPool().query(
       `SELECT t.client_id, t.scopes, t.resource, t.expires_at, c.client_name
