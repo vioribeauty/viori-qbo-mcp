@@ -3,6 +3,7 @@ import { createReadStream } from "fs";
 import { QuickbooksClient } from "../clients/quickbooks-client.js";
 import { ToolResponse } from "../types/tool-response.js";
 import { formatError } from "../helpers/format-error.js";
+import { isDryRun, memoFieldFor, recordPlannedWrite, stampMemo } from "../helpers/write-guard.js";
 import {
   fetchUrlToTempFile,
   inferContentType,
@@ -319,6 +320,12 @@ export async function createQuickbooksAttachable(
         }
         payload.ContentType = effectiveContentType;
 
+        // The binary upload bypasses node-quickbooks (and so the write guard); apply the same rules here.
+        payload.Note = stampMemo(payload.Note, memoFieldFor("Attachable")!.max);
+        if (isDryRun()) {
+          recordPlannedWrite({ operation: "upload", entity: "Attachable", payload: { ...payload, file: "<binary content omitted>" } });
+          return { result: { DryRun: true }, isError: false, error: null };
+        }
         const { accessToken, realmId, isSandbox } =
           await QuickbooksClient.getAuthCredentials();
         const uploadResult = await uploadAttachableFile(

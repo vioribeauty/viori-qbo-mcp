@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { ToolDefinition } from "../types/tool-definition.js";
 import { z } from "zod";
+import { runWithWriteContext, CLAUDE_PREFIX } from "./write-guard.js";
 
 /**
  * Defines CRUD categories for tools
@@ -118,8 +119,22 @@ export function RegisterTool<T extends z.ZodType<any, any>>(
 ) {
   if (isToolDisabled(toolDefinition.name)) return;
 
-  const known = knownParamKeys(toolDefinition.schema);
-  const paramsSchema = permissiveParamsSchema(toolDefinition.schema);
+  // Every write tool takes dry_run; the write guard (write-guard.ts) enforces it
+  // and the "[Claude]" memo at the node-quickbooks layer.
+  const isWrite = getCrudCategory(toolDefinition.name) !== CRUD_CATEGORY.READ;
+  const schema = isWrite && typeof (toolDefinition.schema as any)?.extend === "function"
+    ? (toolDefinition.schema as any).extend({
+        dry_run: z.boolean().optional().describe(
+          "If true, nothing is posted to QuickBooks: the exact payload(s) that would be sent are returned instead."
+        ),
+      })
+    : toolDefinition.schema;
+  const description = isWrite
+    ? `${toolDefinition.description} Supports dry_run. The record's internal memo is automatically prefixed "${CLAUDE_PREFIX}" for the audit log.`
+    : toolDefinition.description;
+
+  const known = knownParamKeys(schema);
+  const paramsSchema = permissiveParamsSchema(schema);
   const baseHandler = toolDefinition.handler as unknown as (...a: any[]) => Promise<any>;
 
   const handler = (async (...a: any[]) => {
@@ -146,7 +161,25 @@ export function RegisterTool<T extends z.ZodType<any, any>>(
       /* diagnostics must never break a working call */
     }
 
-    const result = await baseHandler(...callArgs);
+    // dry_run is consumed here; handlers that spread params into a payload must never see it.
+    let dryRun = false;
+    const p0 = (callArgs[0] as any)?.params;
+    if (isWrite && p0 && typeof p0 === "object" && "dry_run" in p0) {
+      dryRun = p0.dry_run === true;
+      const { dry_run: _omit, ...rest } = p0;
+      callArgs = [{ ...(callArgs[0] as any), params: rest }, ...callArgs.slice(1)];
+    }
+
+    const { result: handlerResult, planned } = await runWithWriteContext(dryRun, () => baseHandler(...callArgs));
+    let result = handlerResult;
+    if (dryRun && planned.length > 0) {
+      result = {
+        content: [
+          { type: "text" as const, text: `DRY RUN - nothing was posted to QuickBooks. ${toolDefinition.name} would send ${planned.length} request(s):` },
+          { type: "text" as const, text: JSON.stringify(planned, null, 2) },
+        ],
+      };
+    }
 
     try {
       if (warning && result && Array.isArray(result.content)) {
@@ -159,5 +192,5 @@ export function RegisterTool<T extends z.ZodType<any, any>>(
     return result;
   }) as typeof toolDefinition.handler;
 
-  server.tool(toolDefinition.name, toolDefinition.description, { params: paramsSchema }, handler);
+  server.tool(toolDefinition.name, description, { params: paramsSchema }, handler as any);
 }

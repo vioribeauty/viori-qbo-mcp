@@ -17,6 +17,13 @@
 
 ---
 
+> **Viori fork.** This fork runs as a hosted Streamable HTTP server on Railway (`src/http-server.ts`), not a local stdio process:
+> - Intuit OAuth: `GET /` (launch), `GET /callback`, `GET|POST /disconnect` (revoke). Tokens are AES-256-GCM encrypted in Postgres (`qbo` schema); the rotated refresh token is saved on every refresh. A connected company can't be replaced by a different realm without disconnecting first.
+> - `/mcp` requires `MCP_BEARER_TOKEN`, either as a static `Authorization: Bearer` header or typed into the OAuth sign-in page that claude.ai custom connectors open.
+> - Every write tool accepts `dry_run` (returns the exact payloads, posts nothing). Every write stamps the record's internal memo with `[Claude]` (`src/helpers/write-guard.ts`); deletes/voids stamp the record first, then delete.
+> - Added: `get_transaction_list`, `delete_account` (make inactive). Fixed: `delete-vendor` (now makes inactive; node-quickbooks has no vendor delete).
+> - Env: `QBO_CLIENT_ID`, `QBO_CLIENT_SECRET`, `QBO_ENVIRONMENT`, `QBO_REDIRECT_URI`, `MCP_BEARER_TOKEN`, `TOKEN_ENCRYPTION_KEY`, `DATABASE_URL`, optional `QBO_REALM_ID` (pin one company).
+
 ## Overview
 
 This MCP server provides complete QuickBooks Online API integration for Claude Code and other MCP-compatible clients. It includes full CRUD operations for 29 entity types and 11 financial reports, giving you comprehensive access to QuickBooks Online functionality.

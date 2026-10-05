@@ -116,19 +116,23 @@ describe('Vendor Handlers', () => {
   });
 
   describe('deleteQuickbooksVendor', () => {
-    it('should delete a vendor', async () => {
-      const mockDeleted = { Id: '56', status: 'Deleted' };
-      mockQuickBooksInstance.deleteVendor.mockImplementation((_payload: any, cb: any) => cb(null, mockDeleted));
+    it('should make the vendor inactive (QBO has no vendor delete)', async () => {
+      const mockInactive = { Id: '56', Active: false };
+      mockQuickBooksInstance.updateVendor.mockImplementation((_payload: any, cb: any) => cb(null, mockInactive));
 
       const result = await deleteQuickbooksVendor({ Id: '56', SyncToken: '0' });
 
+      expect(mockQuickBooksInstance.updateVendor).toHaveBeenCalledWith(
+        { Id: '56', SyncToken: '0', sparse: true, Active: false },
+        expect.any(Function)
+      );
       expect(result.isError).toBe(false);
-      expect(result.result).toEqual(mockDeleted);
+      expect(result.result).toEqual(mockInactive);
     });
 
     it('should handle API errors', async () => {
-      mockQuickBooksInstance.deleteVendor.mockImplementation((_payload: any, cb: any) =>
-        cb(new Error('Delete failed'), null)
+      mockQuickBooksInstance.updateVendor.mockImplementation((_payload: any, cb: any) =>
+        cb(new Error('Update failed'), null)
       );
 
       const result = await deleteQuickbooksVendor({ Id: '56', SyncToken: '0' });

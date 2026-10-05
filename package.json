@@ -1,9 +1,9 @@
 {
-    "name": "@qboapi/qbo-mcp-server",
+    "name": "viori-qbo-mcp",
     "version": "0.0.1",
-    "description": "MCP server implementation for QuickBooks Online integration",
+    "description": "Viori QuickBooks Online MCP server (fork of intuit/quickbooks-online-mcp-server), hosted on Railway over Streamable HTTP",
     "license": "MIT",
-    "main": "dist/index.js",
+    "main": "dist/http-server.js",
     "type": "module",
     "bin": "./dist/index.js",
     "files": [
@@ -11,28 +11,32 @@
     ],
     "scripts": {
         "build": "tsc && shx chmod +x dist/*.js",
-        "prepare": "npm run build",
         "watch": "tsc --watch",
         "lint:fix": "eslint --fix",
         "lint": "eslint .",
-        "auth": "node dist/auth-server.js",
         "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
         "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
-        "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage"
+        "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
+        "start": "node dist/http-server.js"
     },
     "dependencies": {
-        "@modelcontextprotocol/sdk": "^1.26.0",
+        "@modelcontextprotocol/sdk": "^1.32.1",
         "dotenv": "^16.4.7",
+        "express": "^5.2.1",
+        "express-rate-limit": "^8.7.0",
         "intuit-oauth": "^4.2.5",
         "node-quickbooks": "^2.0.43",
         "open": "^9.1.0",
+        "pg": "^8.23.1",
         "zod": "^3.24.2"
     },
     "devDependencies": {
         "@eslint/js": "^9.22.0",
         "@jest/globals": "^30.3.0",
+        "@types/express": "^5.0.6",
         "@types/jest": "^30.0.0",
         "@types/node": "^22.13.10",
+        "@types/pg": "^8.23.1",
         "eslint": "^9.22.0",
         "eslint-config-prettier": "^10.1.1",
         "globals": "^16.0.0",
@@ -49,5 +53,9 @@
             "underscore": "^1.13.8",
             "uuid": "11.1.1"
         }
+    },
+    "private": true,
+    "engines": {
+        "node": ">=20"
     }
 }
